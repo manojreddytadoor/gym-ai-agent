@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gym AI Coaches</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --text: #15181d;
+    --muted: #5d6572;
+    --border: #dde1e7;
+    --diet: #12805c;
+    --diet-soft: #e3f4ec;
+    --workout: #c2410c;
+    --workout-soft: #fdece3;
+    --primary: #1d4ed8;
+    --primary-text: #ffffff;
+    --danger: #b42318;
+    --danger-soft: #fdecea;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --surface: #171a20;
+      --surface-2: #1f232b;
+      --text: #e7e9ee;
+      --muted: #9aa3b2;
+      --border: #2b303a;
+      --diet: #4fd1a1;
+      --diet-soft: #16302a;
+      --workout: #fb923c;
+      --workout-soft: #35211a;
+      --primary: #5b8cff;
+      --primary-text: #0b1020;
+      --danger: #ff8a80;
+      --danger-soft: #3a1c1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header { padding: 28px 16px 8px; max-width: 1280px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { max-width: 1280px; margin: 0 auto; padding: 12px 16px 48px; display: grid; gap: 16px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  details.card > summary {
+    cursor: pointer; list-style: none; padding: 16px 20px; font-weight: 600; font-size: 17px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary::after { content: "▾"; color: var(--muted); transition: transform .15s; }
+  details.card:not([open]) > summary::after { transform: rotate(-90deg); }
+  .summary-line { font-weight: 400; font-size: 14px; color: var(--muted); flex: 1; text-align: right; }
+
+  form { padding: 0 20px 20px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 18px; }
+  legend { font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .wide { grid-column: 1 / -1; }
+  label { display: grid; gap: 4px; font-size: 13px; font-weight: 500; }
+  label .hint { font-weight: 400; color: var(--muted); }
+  input, select, textarea {
+    font: inherit; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; width: 100%;
+  }
+  textarea { resize: vertical; min-height: 42px; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+  button {
+    font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid transparent;
+    padding: 9px 16px; cursor: pointer; background: var(--primary); color: var(--primary-text);
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--muted); border-color: var(--border); font-weight: 500; padding: 5px 10px; font-size: 13px; }
+  .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .actions .hint { color: var(--muted); font-size: 13px; }
+
+  .coaches { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; align-items: start; }
+  .panel { display: flex; flex-direction: column; min-width: 0; }
+  .panel-head {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .badge { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 18px; }
+  .panel.diet .badge { background: var(--diet-soft); color: var(--diet); }
+  .panel.workout .badge { background: var(--workout-soft); color: var(--workout); }
+  .panel-head h2 { margin: 0; font-size: 17px; }
+  .panel-head p { margin: 0; font-size: 13px; color: var(--muted); }
+  .panel-head .spacer { flex: 1; }
+
+  .thread { padding: 6px 18px 12px; min-height: 120px; }
+  .empty { color: var(--muted); padding: 28px 0; text-align: center; }
+  .msg { margin: 14px 0; }
+  .msg.user { display: flex; justify-content: flex-end; }
+  .msg.user div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px 12px 2px 12px; padding: 8px 12px; max-width: 85%; white-space: pre-wrap; }
+  .model-line { font-size: 13px; }
+  .model-line code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  .model-line a { color: var(--primary); }
+  .model-line.bad { color: var(--danger); }
+  .md blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid var(--workout); background: var(--surface-2); border-radius: 0 8px 8px 0; }
+  .md blockquote p { margin: 0; }
+  .md em { color: var(--muted); }
+  .error { background: var(--danger-soft); color: var(--danger); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+  .notice { color: var(--muted); font-size: 13px; font-style: italic; margin-top: 6px; }
+
+  .status { display: none; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; padding: 0 18px 10px; }
+  .status.on { display: flex; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
+  .diet .dot { background: var(--diet); }
+  .workout .dot { background: var(--workout); }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .composer { display: flex; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+  .composer input { flex: 1; min-width: 0; }
+
+  .md { overflow-wrap: anywhere; }
+  .md h1, .md h2 { font-size: 18px; margin: 20px 0 8px; }
+  .md h3 { font-size: 15.5px; margin: 18px 0 6px; }
+  .md p, .md ul, .md ol { margin: 8px 0; }
+  .md ul, .md ol { padding-left: 22px; }
+  .md table { display: block; overflow-x: auto; border-collapse: collapse; margin: 10px 0; font-size: 14px; max-width: 100%; }
+  .md th, .md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+  .md th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+  .md code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .md hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+  .panel.diet .md h2, .panel.diet .md h3 { color: var(--diet); }
+  .panel.workout .md h2, .panel.workout .md h3 { color: var(--workout); }
+
+  footer { color: var(--muted); font-size: 12.5px; text-align: center; padding: 0 16px 32px; max-width: 760px; margin: 0 auto; }
+
+  @media print {
+    header, details.card, .composer, .status, .panel-head button, footer { display: none !important; }
+    body { background: #fff; color: #000; }
+    .coaches { display: block; }
+    .card { border: 0; }
+    .panel { break-before: page; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gym AI Coaches</h1>
+  <p>Two AI agents, a Diet Coach and a Workout Coach, build plans around your details.</p>
+  <p class="model-line" id="modelLine">Checking the local model…</p>
+</header>
+
+<main>
+  <details class="card" id="profileCard" open>
+    <summary>Your profile <span class="summary-line" id="profileSummary"></span></summary>
+    <form id="profileForm" autocomplete="on">
+      <fieldset>
+        <legend>About you</legend>
+        <div class="grid">
+          <label>Name <span class="hint">optional</span><input name="name" maxlength="60"></label>
+          <label>Age<input name="age" type="number" min="16" max="90" required placeholder="28"></label>
+          <label>Sex <span class="hint">used for calorie math</span>
+            <select name="sex" required>
+              <option value="male">Male</option><option value="female">Female</option><option value="other">Other / prefer not to say</option>
+            </select>
+          </label>
+          <label>Height (cm)<input name="height_cm" type="number" min="120" max="230" step="0.1" required placeholder="175"></label>
+          <label>Weight (kg)<input name="weight_kg" type="number" min="35" max="250" step="0.1" required placeholder="78"></label>
+          <label>Target weight (kg) <span class="hint">optional</span><input name="target_weight_kg" type="number" min="35" max="250" step="0.1"></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Training</legend>
+        <div class="grid">
+          <label>Main goal
+            <select name="goal" required>
+              <option value="fat_loss">Fat loss</option>
+              <option value="muscle_gain">Muscle gain</option>
+              <option value="recomposition">Recomposition (lose fat + build muscle)</option>
+              <option value="strength">Strength</option>
+              <option value="general_fitness">General fitness</option>
+              <option value="endurance">Endurance</option>
+            </select>
+          </label>
+          <label>Experience
+            <select name="experience" required>
+              <option value="beginner">Beginner (under 6 months)</option>
+              <option value="intermediate">Intermediate (6 months to 2 years)</option>
+              <option value="advanced">Advanced (2+ years)</option>
+            </select>
+          </label>
+          <label>Training days per week<input name="training_days_per_week" type="number" min="2" max="7" required value="4"></label>
+          <label>Minutes per session<input name="session_minutes" type="number" min="20" max="150" step="5" required value="60"></label>
+          <label>Usual workout time
+            <select name="workout_time" required>
+              <option value="early_morning">Early morning (5 to 7 am)</option>
+              <option value="morning">Morning (7 to 11 am)</option>
+              <option value="afternoon">Afternoon</option>
+              <option value="evening" selected>Evening (5 to 8 pm)</option>
+              <option value="night">Night (after 8 pm)</option>
+            </select>
+          </label>
+          <label>Equipment
+            <select name="equipment" required>
+              <option value="full_gym">Full gym</option>
+              <option value="home_gym">Home gym (barbell, rack, dumbbells)</option>
+              <option value="dumbbells_only">Dumbbells + bench only</option>
+              <option value="bodyweight_only">Bodyweight only</option>
+            </select>
+          </label>
+          <label>Daily activity outside workouts
+            <select name="daily_activity" required>
+              <option value="sedentary">Sedentary (desk job)</option>
+              <option value="lightly_active">Lightly active (on feet some of the day)</option>
+              <option value="active">Active (physical job / 10k+ steps)</option>
+            </select>
+          </label>
+          <label class="wide">Injuries or physical limitations <span class="hint">optional</span>
+            <textarea name="injuries" maxlength="500" rows="1" placeholder="e.g. mild lower-back pain, old left-knee injury"></textarea>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Nutrition</legend>
+        <div class="grid">
+          <label>Diet type
+            <select name="diet_type" required>
+              <option value="non_vegetarian">Non-vegetarian</option>
+              <option value="eggetarian">Eggetarian</option>
+              <option value="vegetarian">Vegetarian (no eggs)</option>
+              <option value="vegan">Vegan</option>
+              <option value="pescatarian">Pescatarian</option>
+            </select>
+          </label>
+          <label>Meals per day<input name="meals_per_day" type="number" min="2" max="6" required value="4"></label>
+          <label>Food budget
+            <select name="budget">
+              <option value="low">Budget-friendly</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="flexible">Flexible</option>
+            </select>
+          </label>
+          <label>Cuisine preference <span class="hint">optional</span><input name="cuisine" maxlength="200" placeholder="e.g. North Indian, Mediterranean"></label>
+          <label class="wide">Allergies or foods to avoid <span class="hint">optional</span>
+            <textarea name="allergies" maxlength="300" rows="1" placeholder="e.g. peanuts, lactose intolerant"></textarea>
+          </label>
+          <label class="wide">Medical conditions <span class="hint">optional</span>
+            <textarea name="medical_conditions" maxlength="500" rows="1" placeholder="e.g. type 2 diabetes, high blood pressure, PCOS"></textarea>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Anything else</legend>
+        <label>Notes for your coaches <span class="hint">optional</span>
+          <textarea name="notes" maxlength="1000" rows="2" placeholder="e.g. I skip breakfast on weekdays, I want to do my first pull-up"></textarea>
+        </label>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" id="generateBtn">Generate my plans</button>
+        <span class="hint">The AI runs on your own computer, so plans can take a few minutes. Both coaches work at the same time.</span>
+      </div>
+    </form>
+  </details>
+
+  <section class="coaches">
+    <article class="card panel diet" data-agent="diet">
+      <div class="panel-head">
+        <div class="badge" aria-hidden="true">🥗</div>
+        <div><h2>Diet Coach</h2><p>Calories, macros and meals</p></div>
+        <div class="spacer"></div>
+        <button class="ghost" data-copy>Copy plan</button>
+      </div>
+      <div class="thread"><div class="empty">Fill in your profile to get your diet plan.</div></div>
+      <div class="status"><span class="dot"></span><span class="status-text"></span></div>
+      <form class="composer">
+        <input placeholder="Ask for changes, e.g. swap paneer for tofu" maxlength="2000" disabled>
+        <button type="submit" disabled>Send</button>
+      </form>
+    </article>
+
+    <article class="card panel workout" data-agent="workout">
+      <div class="panel-head">
+        <div class="badge" aria-hidden="true">🏋️</div>
+        <div><h2>Workout Coach</h2><p>Split, exercises and progression</p></div>
+        <div class="spacer"></div>
+        <button class="ghost" data-copy>Copy plan</button>
+      </div>
+      <div class="thread"><div class="empty">Fill in your profile to get your workout program.</div></div>
+      <div class="status"><span class="dot"></span><span class="status-text"></span></div>
+      <form class="composer">
+        <input placeholder="Ask for changes, e.g. I can't do squats" maxlength="2000" disabled>
+        <button type="submit" disabled>Send</button>
+      </form>
+    </article>
+  </section>
+</main>
+
+<footer>
+  These plans are AI-generated general guidance, not medical advice. Check with a doctor before starting if you have a medical condition, injury or are pregnant.
+</footer>
+
+<script>
+const STORAGE_KEY = "gym-coaches-profile";
+const NUMBER_FIELDS = new Set(["age", "height_cm", "weight_kg", "target_weight_kg", "training_days_per_week", "session_minutes", "meals_per_day"]);
+const form = document.getElementById("profileForm");
+const generateBtn = document.getElementById("generateBtn");
+let sessionId = null;
+
+function renderMarkdown(el, text) {
+  if (window.marked && window.DOMPurify) {
+    el.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  } else {
+    el.style.whiteSpace = "pre-wrap";
+    el.textContent = text;
+  }
+}
+
+class Panel {
+  constructor(root) {
+    this.agent = root.dataset.agent;
+    this.thread = root.querySelector(".thread");
+    this.status = root.querySelector(".status");
+    this.statusText = root.querySelector(".status-text");
+    this.composer = root.querySelector(".composer");
+    this.input = this.composer.querySelector("input");
+    this.sendBtn = this.composer.querySelector("button");
+    this.copyBtn = root.querySelector("[data-copy]");
+    this.lastReply = "";
+    this.busy = false;
+
+    this.composer.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = this.input.value.trim();
+      if (!text || this.busy || !sessionId) return;
+      this.input.value = "";
+      this.run(text);
+    });
+    this.copyBtn.addEventListener("click", async () => {
+      if (!this.lastReply) return;
+      try {
+        await navigator.clipboard.writeText(this.lastReply);
+        this.copyBtn.textContent = "Copied";
+      } catch {
+        this.copyBtn.textContent = "Copy failed";
+      }
+      setTimeout(() => (this.copyBtn.textContent = "Copy plan"), 1500);
+    });
+  }
+
+  reset() {
+    this.thread.innerHTML = "";
+    this.lastReply = "";
+    this.setInputEnabled(false);
+  }
+
+  setInputEnabled(on) {
+    this.input.disabled = !on;
+    this.sendBtn.disabled = !on;
+  }
+
+  setStatus(text) {
+    this.status.classList.toggle("on", Boolean(text));
+    this.statusText.textContent = text || "";
+  }
+
+  append(className, build) {
+    const el = document.createElement("div");
+    el.className = className;
+    build(el);
+    this.thread.appendChild(el);
+    return el;
+  }
+
+  async run(message) {
+    this.busy = true;
+    this.setInputEnabled(false);
+    if (message) this.append("msg user", (el) => el.appendChild(document.createElement("div")).textContent = message);
+
+    const reply = this.append("msg agent", () => {});
+    const body = reply.appendChild(document.createElement("div"));
+    body.className = "md";
+    const showError = (msg) => {
+      const err = reply.appendChild(document.createElement("div"));
+      err.className = "error";
+      err.textContent = msg;
+    };
+
+    // Local models are slow on a laptop, so show what's happening and for how long.
+    const started = Date.now();
+    let step = "Waiting for the model";
+    let tokens = 0;
+    const showProgress = () => {
+      const secs = Math.round((Date.now() - started) / 1000);
+      const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+      this.setStatus(`${step}…${tokens ? ` ${tokens} tokens ·` : ""} ${clock}`);
+    };
+    showProgress();
+    const timer = setInterval(showProgress, 1000);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/${this.agent}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${res.status})`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          switch (event.type) {
+            case "status":
+              step = event.text;
+              tokens = 0;
+              showProgress();
+              break;
+            case "progress":
+              tokens = event.tokens;
+              break;
+            case "reply":
+              renderMarkdown(body, event.markdown);
+              this.lastReply = event.markdown;
+              break;
+            case "error":
+              showError(event.message);
+              break;
+          }
+        }
+      }
+    } catch (err) {
+      showError(err.message || String(err));
+    } finally {
+      clearInterval(timer);
+      if (!body.textContent.trim() && !reply.querySelector(".error")) reply.remove();
+      this.busy = false;
+      this.setStatus("");
+      this.setInputEnabled(Boolean(sessionId));
+    }
+  }
+}
+
+const panels = [...document.querySelectorAll(".panel")].map((el) => new Panel(el));
+
+(async () => {
+  const line = document.getElementById("modelLine");
+  try {
+    const info = await (await fetch("/api/model")).json();
+    line.textContent = "";
+    if (info.error) {
+      line.classList.add("bad");
+      line.textContent = `Model ${info.model}: ${info.error}`;
+      return;
+    }
+    const details = [info.parameters, info.quantization].filter(Boolean).join(" · ");
+    line.append("Running locally with Ollama: ");
+    line.appendChild(document.createElement("code")).textContent = info.model;
+    line.append(` ${details ? `(${details}) ` : ""}· ID `);
+    line.appendChild(document.createElement("code")).textContent = info.id;
+    line.append(" · ");
+    const link = Object.assign(document.createElement("a"), {
+      href: info.library_url, target: "_blank", rel: "noopener", textContent: "verify on ollama.com",
+    });
+    line.appendChild(link);
+  } catch {
+    line.classList.add("bad");
+    line.textContent = "Couldn't check the local model.";
+  }
+})();
+
+function readForm() {
+  const data = {};
+  for (const [key, raw] of new FormData(form)) {
+    const value = raw.trim();
+    if (NUMBER_FIELDS.has(key)) {
+      if (value !== "") data[key] = Number(value);
+    } else {
+      data[key] = value;
+    }
+  }
+  return data;
+}
+
+function summarize(p) {
+  const goal = form.goal.selectedOptions[0].textContent.split(" (")[0];
+  return `${p.age} y · ${p.height_cm} cm · ${p.weight_kg} kg · ${goal} · ${p.training_days_per_week} days/week`;
+}
+
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  if (saved) for (const [key, value] of Object.entries(saved)) if (form.elements[key]) form.elements[key].value = value;
+} catch {}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (panels.some((p) => p.busy)) return;
+  const profile = readForm();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(profile)); } catch {}
+
+  generateBtn.disabled = true;
+  try {
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = Array.isArray(data.detail)
+        ? data.detail.map((d) => `${d.loc.at(-1)}: ${d.msg}`).join("\n")
+        : data.detail;
+      throw new Error(detail || `Request failed (${res.status})`);
+    }
+    sessionId = data.session_id;
+    document.getElementById("profileSummary").textContent = summarize(profile);
+    document.getElementById("profileCard").open = false;
+    panels.forEach((p) => p.reset());
+    // The model handles one request at a time on most laptops: queue the
+    // shorter diet plan first so something useful appears sooner.
+    const dietRun = panels[0].run(null);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await Promise.all([dietRun, panels[1].run(null)]);
+  } catch (err) {
+    alert(err.message || String(err));
+  } finally {
+    generateBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
